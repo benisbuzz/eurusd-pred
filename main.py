@@ -108,7 +108,7 @@ def get_garman_klass(data: pd.DataFrame) -> pd.Series:
     )
 
 def rolling_regression_forecast(
-    features_df: pd.DataFrame, window_size: int = 10  # 1 week in minutes
+    features_df: pd.DataFrame, window_size: int = 7*1440  # 1 week in minutes
 ) -> pd.DataFrame:
     """
     Performs rolling regression to forecast forward returns.
