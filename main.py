@@ -34,13 +34,8 @@ def load_eurusd_data(base_path: str, year: int) -> pd.DataFrame:
         index_col=False,
     )
     df["DateTime"] = pd.to_datetime(df["DateTime"], format="%Y%m%d %H%M%S")
-    df.set_index("DateTime", inplace=True)
-    df = df[["Open", "High", "Low", "Close", "Volume"]]
+    df.set_index("DateTime", inplace=True, drop=True)
     return df
-
-
-# Load the data for 2023
-EURUSD = load_eurusd_data(BASE_PATH, 2023)
 
 def get_ewm_macd(data: pd.DataFrame, short_window: int, long_window: int) -> pd.Series:
     return data["Close"].ewm(span=short_window).mean() - data["Close"].ewm(span=long_window).mean()
@@ -112,24 +107,8 @@ def get_garman_klass(data: pd.DataFrame) -> pd.Series:
         - (2 * np.log(2) - 1) * (np.log(data["Close"] / data["Open"]) ** 2)
     )
 
-
-mean_short = get_ewm_macd(EURUSD, 3, 15)
-mean_long = get_ewm_macd(EURUSD, 1440, 43200)
-pinbar_feature = get_pinbar(EURUSD)
-garman_klass_feature = get_garman_klass(EURUSD)
-fwd_return = EURUSD["Close"].diff().shift(-1)
-features_df = pd.DataFrame(
-    {
-        "mean_short": mean_short,
-        "mean_long": mean_long,
-        "pinbar": pinbar_feature,
-        "gk_vol": garman_klass_feature,
-        "fwd_rets": fwd_return,
-    }
-)
-
 def rolling_regression_forecast(
-    features_df: pd.DataFrame, window_size: int = 7 * 1440  # 1 week in minutes
+    features_df: pd.DataFrame, window_size: int = 10  # 1 week in minutes
 ) -> pd.DataFrame:
     """
     Performs rolling regression to forecast forward returns.
@@ -197,11 +176,5 @@ def rolling_regression_forecast(
     print(f"Out-of-sample MAPE: {mape}")
     print(f"Correlation between y and y^: {correlation}")
     return results_df
-
-
-
-
-results_df = rolling_regression_forecast(features_df)
-print(results_df.head())
 
 
