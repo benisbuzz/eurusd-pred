@@ -131,8 +131,8 @@ def rolling_regression_forecast(
     fwd_rets = features_df["spot"].diff().shift(-1)
     results_df = pd.DataFrame(index=features_df.index)
     results_df["y_true"] = fwd_rets  # Store true values
-    results_df["y_pred"] = np.nan
-    results_df["spot_pred"] = np.nan  # Initialize predictions with NaN
+    # results_df["spot_pred"] = np.nan  # Initialize predictions with NaN
+
 
 
     start_index = 0
@@ -160,23 +160,45 @@ def rolling_regression_forecast(
         # using .values and aligning indices will avoid reindexing issues
         # Get the common index between next_week_data and results_df
         common_index = next_week_data.index.intersection(results_df.index)
+        spot_start = features_df["spot"].iloc[start_index + window_size - 1]
 
         # Assign predictions to the common index in results_df
         pip_preds = model.predict(next_week_X).values
         results_df.loc[common_index, "y_pred"] = pip_preds
-        results_df.loc[common_index, "spot_pred"] = pip_preds.cumsum() + features_df["spot"].iloc[start_index + window_size - 1]
+        take_profit = pip_preds.sum()+spot_start
+        results_df.loc[common_index, "take_profit"] = take_profit
+        stop_loss = spot_start - pip_preds.sum()/2
+        results_df.loc[common_index, "stop_loss"] = stop_loss
+        arr = np.zeros(len(common_index))
+        long_bool = take_profit > features_df["spot"].loc[common_index[0]]
+        if long_bool:
+            for i in range(len(common_index)):
+                if stop_loss < features_df['spot'].loc[common_index[i]]:
+                    arr[i] = 1
+                else:
+                    break
+        else:
+            for i in range(len(common_index)):
+                if stop_loss > features_df['spot'].loc[common_index[i]]:
+                    arr[i] = -1
+                else:
+                    break
+
+        results_df.loc[common_index, "pos"] = arr
+        # results_df.loc[common_index, "pos"] = np.where((features_df['spot'].loc[common_index]<stop_loss)|(features_df['spot'].loc[common_index]>take_profit),0,1)
+
          # Store predictions
 
         start_index += window_size  # Move to the next window
 
     # Calculate performance metrics
-    results_df = results_df.dropna()  # Remove rows with NaN predictions
-    mse = mean_squared_error(results_df["y_true"], results_df["y_pred"])
-    mape = mean_absolute_percentage_error(results_df["y_true"], results_df["y_pred"])
-    correlation = results_df["y_true"].corr(results_df["y_pred"])
+    # results_df = results_df.dropna()  # Remove rows with NaN predictions
+    # mse = mean_squared_error(results_df["y_true"], results_df["y_pred"])
+    # mape = mean_absolute_percentage_error(results_df["y_true"], results_df["y_pred"])
+    # correlation = results_df["y_true"].corr(results_df["y_pred"])
 
-    print(f"Out-of-sample MSE: {mse}")
-    print(f"Out-of-sample MAPE: {mape}")
-    print(f"Correlation between y and y^: {correlation}")
+    # print(f"Out-of-sample MSE: {mse}")
+    # print(f"Out-of-sample MAPE: {mape}")
+    # print(f"Correlation between y and y^: {correlation}")
     return results_df
 
