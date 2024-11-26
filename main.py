@@ -108,7 +108,7 @@ def get_garman_klass(data: pd.DataFrame) -> pd.Series:
     )
 
 def rolling_regression_forecast(
-    features_df: pd.DataFrame, window_size: int = 7*1440  # 1 week in minutes
+    features_df: pd.DataFrame, window_size: int = 60*24  # 1 week in minutes
 ) -> pd.DataFrame:
     """
     Performs rolling regression to forecast forward returns.
@@ -128,10 +128,12 @@ def rolling_regression_forecast(
     # Ensure index is unique before proceeding
     # If there are duplicates, keep the first occurrence
     features_df = features_df[~features_df.index.duplicated(keep="first")]
-
+    fwd_rets = features_df["spot"].diff().shift(-1)
     results_df = pd.DataFrame(index=features_df.index)
-    results_df["y_true"] = features_df["fwd_rets"]  # Store true values
-    results_df["y_pred"] = np.nan  # Initialize predictions with NaN
+    results_df["y_true"] = fwd_rets  # Store true values
+    results_df["y_pred"] = np.nan
+    results_df["spot_pred"] = np.nan  # Initialize predictions with NaN
+
 
     start_index = 0
     while start_index + window_size < len(features_df):
@@ -139,8 +141,8 @@ def rolling_regression_forecast(
         window_data = features_df.iloc[start_index : start_index + window_size]
 
         # Separate features (X) and target (y)
-        X = window_data.drop(columns=["fwd_rets"])
-        y = window_data["fwd_rets"]
+        X = window_data.drop(columns=["spot"])
+        y = fwd_rets.iloc[start_index : start_index + window_size]
 
         # Fit the regression model
         X = sm.add_constant(X)  # Add a constant term
@@ -152,7 +154,7 @@ def rolling_regression_forecast(
         ]
 
         next_week_X = sm.add_constant(
-            next_week_data.drop(columns=["fwd_rets"])
+            next_week_data.drop(columns=["spot"])
         )  # Add a constant term and drop target for prediction
 
         # using .values and aligning indices will avoid reindexing issues
@@ -160,9 +162,10 @@ def rolling_regression_forecast(
         common_index = next_week_data.index.intersection(results_df.index)
 
         # Assign predictions to the common index in results_df
-        results_df.loc[common_index, "y_pred"] = model.predict(
-            next_week_X
-        ).values  # Store predictions
+        pip_preds = model.predict(next_week_X).values
+        results_df.loc[common_index, "y_pred"] = pip_preds
+        results_df.loc[common_index, "spot_pred"] = pip_preds.cumsum() + features_df["spot"].iloc[start_index + window_size - 1]
+         # Store predictions
 
         start_index += window_size  # Move to the next window
 
@@ -176,5 +179,4 @@ def rolling_regression_forecast(
     print(f"Out-of-sample MAPE: {mape}")
     print(f"Correlation between y and y^: {correlation}")
     return results_df
-
 
