@@ -1,15 +1,16 @@
 import numpy as np
 
-'''
+"""
 Copied from https://stackoverflow.com/questions/42869495/numpy-version-of-exponential
 -weighted-moving-average-equivalent-to-pandas-ewm/51392341#51392341
 Answer by Jake Walden
-'''
+"""
 
 
 # TODO: Make this np.nan resistant!
 
-def ewma_vectorized_safe(data, alpha, row_size=None, dtype=None, order='C', out=None):
+
+def ewma_vectorized_safe(data, alpha, row_size=None, dtype=None, order="C", out=None):
     """
     Reshapes data before calculating EWMA, then iterates once over the rows
     to calculate the offset without precision issues
@@ -74,8 +75,15 @@ def ewma_vectorized_safe(data, alpha, row_size=None, dtype=None, order='C', out=
         data_main_view = data
 
     # get all the scaled cumulative sums with 0 offset
-    ewma_vectorized_2d(data_main_view, alpha, axis=1, offset=0, dtype=dtype,
-                       order='C', out=out_main_view)
+    ewma_vectorized_2d(
+        data_main_view,
+        alpha,
+        axis=1,
+        offset=0,
+        dtype=dtype,
+        order="C",
+        out=out_main_view,
+    )
 
     scaling_factors = (1 - alpha) ** np.arange(1, row_size + 1)
     last_scaling_factor = scaling_factors[-1]
@@ -92,13 +100,19 @@ def ewma_vectorized_safe(data, alpha, row_size=None, dtype=None, order='C', out=
 
     if trailing_n > 0:
         # process trailing data in the 2nd slice of the out parameter
-        ewma_vectorized(data[-trailing_n:], alpha, offset=out_main_view[-1, -1],
-                        dtype=dtype, order='C', out=out[-trailing_n:])
+        ewma_vectorized(
+            data[-trailing_n:],
+            alpha,
+            offset=out_main_view[-1, -1],
+            dtype=dtype,
+            order="C",
+            out=out[-trailing_n:],
+        )
     return out
 
 
 def get_max_row_size(alpha, dtype=float):
-    assert 0. <= alpha < 1.
+    assert 0.0 <= alpha < 1.0
     # This will return the maximum row size possible on
     # your platform for the given dtype. I can find no impact on accuracy
     # at this value on my machine.
@@ -111,7 +125,7 @@ def get_max_row_size(alpha, dtype=float):
     return int(np.log(epsilon) / np.log(1 - alpha)) + 1
 
 
-def ewma_vectorized(data, alpha, offset=None, dtype=None, order='C', out=None):
+def ewma_vectorized(data, alpha, offset=None, dtype=None, order="C", out=None):
     """
     Calculates the exponential moving average over a vector.
     Will fail for large inputs.
@@ -161,11 +175,13 @@ def ewma_vectorized(data, alpha, offset=None, dtype=None, order='C', out=None):
 
     # scaling_factors -> 0 as len(data) gets large
     # this leads to divide-by-zeros below
-    scaling_factors = np.power(1. - alpha, np.arange(data.size + 1, dtype=dtype),
-                               dtype=dtype)
+    scaling_factors = np.power(
+        1.0 - alpha, np.arange(data.size + 1, dtype=dtype), dtype=dtype
+    )
     # create cumulative sum array
-    np.multiply(data, (alpha * scaling_factors[-2]) / scaling_factors[:-1],
-                dtype=dtype, out=out)
+    np.multiply(
+        data, (alpha * scaling_factors[-2]) / scaling_factors[:-1], dtype=dtype, out=out
+    )
     np.cumsum(out, dtype=dtype, out=out)
 
     # cumsums / scaling
@@ -179,7 +195,9 @@ def ewma_vectorized(data, alpha, offset=None, dtype=None, order='C', out=None):
     return out
 
 
-def ewma_vectorized_2d(data, alpha, axis=None, offset=None, dtype=None, order='C', out=None):
+def ewma_vectorized_2d(
+    data, alpha, axis=None, offset=None, dtype=None, order="C", out=None
+):
     """
     Calculates the exponential moving average over a given axis.
     :param data: Input data, must be 1D or 2D array.
@@ -227,8 +245,7 @@ def ewma_vectorized_2d(data, alpha, axis=None, offset=None, dtype=None, order='C
         # use 1D version
         if isinstance(offset, np.ndarray):
             offset = offset[0]
-        return ewma_vectorized(data, alpha, offset, dtype=dtype, order=order,
-                               out=out)
+        return ewma_vectorized(data, alpha, offset, dtype=dtype, order=order, out=out)
 
     assert -data.ndim <= axis < data.ndim
 
@@ -253,16 +270,19 @@ def ewma_vectorized_2d(data, alpha, axis=None, offset=None, dtype=None, order='C
     # calculate the moving average
     row_size = data.shape[1]
     row_n = data.shape[0]
-    scaling_factors = np.power(1. - alpha, np.arange(row_size + 1, dtype=dtype),
-                               dtype=dtype)
+    scaling_factors = np.power(
+        1.0 - alpha, np.arange(row_size + 1, dtype=dtype), dtype=dtype
+    )
     # create a scaled cumulative sum array
     np.multiply(
         data,
-        np.multiply(alpha * scaling_factors[-2], np.ones((row_n, 1), dtype=dtype),
-                    dtype=dtype)
-        / scaling_factors[np.newaxis, :-1],
-        dtype=dtype, out=out_view
+        np.multiply(
+            alpha * scaling_factors[-2], np.ones((row_n, 1), dtype=dtype), dtype=dtype
         )
+        / scaling_factors[np.newaxis, :-1],
+        dtype=dtype,
+        out=out_view,
+    )
     np.cumsum(out_view, axis=1, dtype=dtype, out=out_view)
     out_view /= scaling_factors[np.newaxis, -2::-1]
 
@@ -298,13 +318,13 @@ if __name__ == "__main__":
     # windowsize calcs
 
     alpha = 0.02
-    sum_proportion = .99  # window covers 99% of contribution to the moving average
+    sum_proportion = 0.99  # window covers 99% of contribution to the moving average
     window = window_size(alpha, sum_proportion)  # = 227
-    sum_proportion = .75  # window covers 75% of contribution to the moving average
+    sum_proportion = 0.75  # window covers 75% of contribution to the moving average
     window = window_size(alpha, sum_proportion)  # = 68
 
     chunk_size = 50
     result = ewma_vectorized_safe(data, alpha, chunk_size)
-    sum_proportion = .99
+    sum_proportion = 0.99
     cutoff_idx = window_size(alpha, sum_proportion)
     result = result[cutoff_idx:]
